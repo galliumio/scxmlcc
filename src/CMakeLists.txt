@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 2.8.11)
-project( scxmlcc )
-
 find_package (Boost REQUIRED COMPONENTS filesystem system program_options )
 
 add_executable( ${PROJECT_NAME}

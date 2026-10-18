@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 2.8.11)
-
 include( scxmlcc_generator )
 
 set( CMAKE_INCLUDE_CURRENT_DIR ON )

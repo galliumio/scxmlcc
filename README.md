@@ -9,6 +9,8 @@
 
 **Upstream baseline:** [jp-embedded/scxmlcc](https://github.com/jp-embedded/scxmlcc) at commit [`2dbbcec`](https://github.com/jp-embedded/scxmlcc/commit/2dbbcec) (near release `0.11`). To pull upstream changes: `git fetch upstream` and merge `upstream/master` into `main`.
 
+**Windows:** [Building scxmlcc and Hello World](doc/building-windows.md).
+
 # Welcome to scxmlcc.
 The scxml state machine to c++ compiler.
 
