@@ -5,13 +5,9 @@
   -->
 [Home](https://github.com/jp-embedded/scxmlcc) | [Documentation](doc/index.md) | [Latest Release](https://github.com/jp-embedded/scxmlcc/releases) | [scxmlgui](https://github.com/fmorbini/scxmlgui/) | [Scxml Editor](https://github.com/alexzhornyak/ScxmlEditor-Tutorial)
 
-## Gallium maintenance
-
-This copy is maintained by [Gallium Studio](https://www.galliumstudio.com) at [galliumio/scxmlcc](https://github.com/galliumio/scxmlcc).
+**Maintained fork:** [galliumio/scxmlcc](https://github.com/galliumio/scxmlcc)
 
 **Upstream baseline:** [jp-embedded/scxmlcc](https://github.com/jp-embedded/scxmlcc) at commit [`2dbbcec`](https://github.com/jp-embedded/scxmlcc/commit/2dbbcec) (near release `0.11`). To pull upstream changes: `git fetch upstream` and merge `upstream/master` into `main`.
-
----
 
 # Welcome to scxmlcc.
 The scxml state machine to c++ compiler.
