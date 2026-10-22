@@ -26,6 +26,19 @@
 
 using namespace std;
 
+namespace {
+
+bool runtime_queues(const options &opt)
+{
+	return !opt.bare_metal && !opt.gallium;
+}
+
+bool simple_model_ctor(const options &opt)
+{
+	return opt.cpp14 || opt.bare_metal || opt.gallium;
+}
+
+} // namespace
 
 string event_name(string event)
 {
@@ -61,7 +74,7 @@ void cpp_output::gen_transition_base()
 	out << "> class transition_actions" << endl;
 	out << tab << "{" << endl;
 	out << tab << tab << "protected:" << endl;
-	out << tab << tab << "void enter(data_model&) {} // default enter action" << endl;
+	out << tab << tab << "void run(data_model&) {} // default transition action" << endl;
 	out << tab << tab << "bool condition(data_model&) { return true; } // default condition action" << endl;
 	out << tab << "};" << endl;
 	out << endl;
@@ -163,7 +176,7 @@ void cpp_output::gen_transition_base()
 	if (sc.using_parallel) out << tab << tab << tab << "state_exit_parallel(s, d, sc, id<T>(), static_cast<typename D::parent_t*>(nullptr));" << endl;
 	if (sc.using_compound) out << tab << tab << tab << "s->exit_to_src(sc.model, S::id());" << endl;
 	out << tab << tab << tab << "state_exit(s, sc.model, id<T>(), static_cast<typename D::parent_t*>(nullptr));" << endl;
-	out << tab << tab << tab << "transition_actions<E, S, D>::enter(sc.model);" << endl;
+	out << tab << tab << tab << "transition_actions<E, S, D>::run(sc.model);" << endl;
 	out << tab << tab << tab << "state_enter(d, sc.model, id<T>(), static_cast<typename D::parent_t*>(nullptr));" << endl;
 	if (sc.using_parallel) {
 		out << tab << tab << tab << state_t() << "::state_list r = d->template enter_parallel<S>(sc, d, s);" << endl;
@@ -236,7 +249,7 @@ void cpp_output::gen_transition_base()
 		if(opt.debug == "clog") out << tab << tab << tab << "if (sc.model.debug) std::clog << \"" << classname() << ": transition [\" << ename << \"] \" << S::debug_name() << std::endl;" << endl;
 		else if(opt.debug == "scxmlgui") out << tab << tab << tab << "if (sc.model.debug) std::clog << \"3 \" << S::debug_name() << \" -> \" << S::debug_name() << std::endl;" << endl;
                 else if(opt.debug == "scxmleditor") out << tab << tab << tab << "if (sc.model.debug) std::clog << \"12@\" << sc.model._name << \'@\' << ename << \'@\' << std::endl;" << endl;
-		out << tab << tab << tab << "transition_actions<E, S, no_state>::enter(sc.model);" << endl;
+		out << tab << tab << tab << "transition_actions<E, S, no_state>::run(sc.model);" << endl;
 		if (sc.using_parallel) {
 			out << tab << tab << tab << state_t() << "::state_list r;" << endl;
 			out << tab << tab << tab << "r.push_back(s);" << endl;
@@ -346,7 +359,7 @@ void cpp_output::gen_transition_base()
 
 		out << tab << tab << tab << "transition_actions<E, S";
 		for(int i = 0; i < sz; ++i) out << ", D" << i;
-		out << ">::enter(sc.model);" << endl;
+		out << ">::run(sc.model);" << endl;
 
 		out << tab << tab << tab << "d0->template enter<S>(sc.model, static_cast<S*>(nullptr));" << endl;
 		out << tab << tab << tab << state_t() << "::state_list r = d0->template enter_parallel<S>(sc, d0, s";
@@ -602,7 +615,7 @@ void cpp_output::gen_model_base_data()
 	const scxml_parser::data_list &datamodel = sc.sc().datamodel;
 
 	constructs.push_back(make_pair("user", "um"));
-	if(!opt.bare_metal) {
+	if(runtime_queues(opt)) {
 
         if(!opt.cpp14) {
            constructs.push_back(make_pair("event_queue_int", "allocator"));
@@ -638,7 +651,7 @@ void cpp_output::gen_model_base_data()
 			constructs.push_back(make_pair(id, *expr_opt));
 		}
 	}
-        if(opt.cpp14 || opt.bare_metal) out << tab << tab << "data_model(user_model* um)" << endl;
+        if(simple_model_ctor(opt)) out << tab << tab << "data_model(user_model* um)" << endl;
         else out << tab << tab << "data_model(user_model* um, std::pmr::memory_resource* allocator)" << endl;
 	char delim(':');
 
@@ -702,7 +715,7 @@ std::set<std::string> cpp_output::get_event_names() const
 		}
 		for (scxml_parser::plist<scxml_parser::action>::const_iterator i = actions.begin(); i != actions.end(); ++i) {
 			scxml_parser::action &a = *i->get();
-			if (a.type == "raise" && ! opt.bare_metal) {
+			if (a.type == "raise" && runtime_queues(opt)) {
 				events.push_back(a.attr["event"]);
 			}
 		}
@@ -748,7 +761,7 @@ void cpp_output::gen_model_base()
 	out << tab << "struct data_model" << endl;
 	out << tab << "{" << endl;
 	out << tab << tab << "user_model *user;" << endl;
-	if (!opt.bare_metal) {
+	if (runtime_queues(opt)) {
                 if (opt.cpp14) {
                       out << tab << tab << "std::deque<event> event_queue_int;" << endl;
                       out << tab << tab << "std::deque<event> event_queue_ext;" << endl;
@@ -1165,13 +1178,14 @@ void cpp_output::gen_sc()
 		out << tab << '}' << endl;
 	}
 	out << endl;
-	out << tab << "public: void dispatch_int(event e = &state::unconditional)" << endl;
+	if (opt.gallium) out << tab << "public: void dispatch_int(event e)" << endl;
+	else out << tab << "public: void dispatch_int(event e = &state::unconditional)" << endl;
 	out << tab << "{" << endl;
 	out << tab << tab << "bool cont = dispatch_event(e) || dispatch_event(&state::unconditional);" << endl;
 	out << tab << tab << "while (cont) {" << endl;
 	out << tab << tab << tab << "if ((cont = dispatch_event(&state::initial)));" << endl;
 	out << tab << tab << tab << "else if ((cont = dispatch_event(&state::unconditional)));" << endl;
-	if(!opt.bare_metal) {
+	if(runtime_queues(opt)) {
 		if (!opt.thread_safe) out << tab << tab << tab << "else if (model.event_queue_int.size()) cont = dispatch_event(model.event_queue_int.front()), model.event_queue_int.pop_front(), cont |= !model.event_queue_int.empty();" << endl;
 		else out << tab << tab << tab << "else if (auto next_e = model.pop_event()) cont = dispatch_event(*next_e), cont |= !model.event_queue_int.empty();" << endl;
 	}
@@ -1180,7 +1194,7 @@ void cpp_output::gen_sc()
 	out << tab << "}" << endl;
         out << endl;
 
-   if(opt.bare_metal) {
+   if(!runtime_queues(opt)) {
       out << tab << "void dispatch(event e = &state::unconditional)" << endl;
       out << tab << "{" << endl;
       out << tab << tab << "dispatch_int(e);" << endl;
@@ -1275,7 +1289,7 @@ void cpp_output::gen_sc()
 	// constructor
 	auto event_names = get_event_names();
 
-	if (opt.cpp14 || opt.bare_metal) out << tab << classname() << "(user_model *user = nullptr)" << endl;
+	if (simple_model_ctor(opt)) out << tab << classname() << "(user_model *user = nullptr)" << endl;
 	else out << tab << classname() << "(user_model *user = nullptr, std::pmr::memory_resource* allocator = std::pmr::get_default_resource())" << endl;
 	out << tab << ": ";
 	if(opt.string_events && ! event_names.empty()) {
@@ -1288,13 +1302,13 @@ void cpp_output::gen_sc()
 		out << "}" << endl;
 		out << tab << ", ";
 	}
-	if (opt.cpp14 || opt.bare_metal) out << "model(user)" << endl;
+	if (simple_model_ctor(opt)) out << "model(user)" << endl;
 	else out << "model(user, allocator)" << endl;
 
 	out << tab << "{" << endl;
 	if(sc.using_parallel) out << tab << tab << "model.cur_state.push_back(get_state<scxml>());" << endl;
 	else out << tab << tab << "model.cur_state = get_state<scxml>();" << endl;
-   if(!opt.bare_metal) {
+   if(runtime_queues(opt)) {
       out << tab << tab << "model.event_queue_ext.push_back(&state::initial);" << endl;
    }
 	out << tab << "}" << endl;
@@ -1303,7 +1317,7 @@ void cpp_output::gen_sc()
 	out << endl;
   out << tab << "void init() {";
 	if(opt.debug == "scxmleditor") out << " if (model.debug) std::clog << \"@@@\" << std::endl;";
-  if(opt.bare_metal) {
+  if(!runtime_queues(opt)) {
       out << tab << " dispatch_int(&state::initial); }" << endl;
   }
   else {
@@ -1391,7 +1405,9 @@ void cpp_output::gen_action_part_raise(scxml_parser::action &a)
 void cpp_output::gen_action_part(scxml_parser::action &a)
 {
 	if(a.type == "raise") {
-		if(opt.bare_metal) cerr << "warning: raise ignored for bare-metal" << endl;
+		if(!runtime_queues(opt)) {
+			cerr << "warning: SCXML <raise> ignored in this profile; post internal events from framework code in transition_actions/state_actions instead" << endl;
+		}
 		else gen_action_part_raise(a);
 	}
 	else if(a.type == "log") gen_action_part_log(a);
@@ -1474,7 +1490,7 @@ void cpp_output::gen_actions()
 			for(scxml_parser::slist::const_iterator ai = s->get()->initial.target.begin(); ai != s->get()->initial.target.end(); ++ai) {
 				out << ", " << classname() << "::state_" << *ai;
 			}
-			out << ">::enter(" << classname() << "::data_model &m)" << endl;
+			out << ">::run(" << classname() << "::data_model &m)" << endl;
 			out << '{' << endl;
 			gen_with_begin(false);
 			for (scxml_parser::plist<scxml_parser::action>::const_iterator i = s->get()->initial.actions.begin(); i != s->get()->initial.actions.end(); ++i) {
@@ -1496,7 +1512,7 @@ void cpp_output::gen_actions()
 				for(scxml_parser::slist::const_iterator iaction = itrans->get()->target.begin(); iaction != itrans->get()->target.end(); ++iaction) {
 					out << ", " << classname() << "::state_" << *iaction;
 				}
-				out << ">::enter(" << classname() << "::data_model &m)" << endl;
+				out << ">::run(" << classname() << "::data_model &m)" << endl;
 				out << '{' << endl;
 				gen_with_begin(false);
 				for (scxml_parser::plist<scxml_parser::action>::const_iterator i = itrans->get()->actions.begin(); i != itrans->get()->actions.end(); ++i) {
@@ -1607,9 +1623,28 @@ void cpp_output::gen()
 		cerr << "error: String events are not supported with bare metal C++" << endl;
 		exit(1);
 	}
+	if (opt.gallium && opt.bare_metal) {
+		cerr << "error: --gallium and --baremetal cannot be used together" << endl;
+		exit(1);
+	}
+	if (opt.gallium && opt.thread_safe) {
+		cerr << "error: The threadsafe option is not supported with --gallium" << endl;
+		exit(1);
+	}
+	if (opt.gallium && opt.string_events) {
+		cerr << "error: String events are not supported with --gallium" << endl;
+		exit(1);
+	}
+	if (opt.gallium && sc.using_final) {
+		cerr << "error: final states are not supported with --gallium" << endl;
+		exit(1);
+	}
 
 	// include guard
 	out << "// This file is automatically generated by scxmlcc (version " << version() << ")" << endl;
+	if (opt.gallium) {
+		out << "// Profile: --gallium (host calls dispatch_int(); no scxmlcc event queues)" << endl;
+	}
 	out << "// For more information, see http://scxmlcc.org" << endl;
 	out << endl;
 	out << "#ifndef SC_" << boost::to_upper_copy(sc.sc().name) << "_INCLUDED" << endl;
@@ -1622,10 +1657,13 @@ void cpp_output::gen()
 		out << "#include <bitset>" << endl;
 		out << "#include <algorithm>" << endl;
 	}
-	if(!opt.bare_metal) {
+	if(runtime_queues(opt)) {
 		out << "#include <deque>" << endl;
 		out << "#include <vector>" << endl;
 		out << "#include <string>" << endl;
+	}
+	else if (!opt.bare_metal) {
+		out << "#include <vector>" << endl;
 	}
 	if(opt.thread_safe) {
 		out << "#include <condition_variable>" << endl;
@@ -1649,7 +1687,7 @@ void cpp_output::gen()
 	if(sc.using_log || opt.debug == "clog" || opt.debug == "scxmlgui" || opt.debug == "scxmleditor") {
 		out << "#include <iostream>" << endl;
 	}
-        if(!opt.cpp14 && !opt.bare_metal) {
+        if(!opt.cpp14 && runtime_queues(opt)) {
 		out << "#include <memory_resource>" << endl;
         }
 	out << endl;

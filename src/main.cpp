@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
 		("debug,d",	value<string>(),	"Enable debug output (to clog, scxmlgui or scxmleditor)")
 		("ignore-unknown,u",	value<string>(),"ignore unknown xml elements matching regex")
 		("baremetal,b",				"Generate code for bare metal C++")
+		("gallium,g",				"Generate code for Gallium host dispatch (no scxmlcc queues)")
 		("threadsafe,t",			"Generate threadsafe code for event_queue")
 		("stringevents,s",			"Enable triggering events by name")
 		("namespace,n",	value<string>(),	"Generate code in given namespace")
@@ -84,6 +85,7 @@ int main(int argc, char *argv[])
 	if(vm.count("ignore-unknown")) opt.ignore_unknown = vm["ignore-unknown"].as<string>();
 	if(vm.count("debug")) opt.debug = vm["debug"].as<string>();
 	if(vm.count("baremetal")) opt.bare_metal = true;
+	if(vm.count("gallium")) opt.gallium = true;
 	if(vm.count("threadsafe")) opt.thread_safe = true;
 	if(vm.count("stringevents")) opt.string_events = true;
 	opt.cpp14 = (vm.count("cpp14") != 0);

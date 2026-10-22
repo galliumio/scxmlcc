@@ -114,10 +114,48 @@ hello
 world
 ```
 
+### Gallium Hello World (CMake)
+
+Gallium-specific examples live under `src/examples/gallium/` (same chart names as upstream, e.g. `hello_world.scxml`, but generated with `--gallium`). After configuring with `-DDEVELOPER=1`:
+
+```bat
+cd path\to\scxmlcc\build
+cmake --build . --config Release --target gallium_hello_world
+src\examples\gallium\Release\gallium_hello_world.exe
+```
+
+Expected output:
+
+```text
+hello
+world
+```
+
+Codegen runs via `scxmlcc_generator` with `CLIARGUMENTS --gallium` (see `src/examples/gallium/CMakeLists.txt`). The generated header is `build/src/examples/gallium/hello_world.h`.
+
+Manual generate (e.g. for STM32CubeIDE):
+
+```bat
+cd path\to\scxmlcc\src\examples\gallium
+path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -o hello_world.h hello_world.scxml
+```
+
+### Gallium profile (`--gallium`)
+
+Compared to the default profile, `--gallium` omits scxmlcc `deque` event queues and does not bootstrap through `dispatch_ext()`. Your framework drives the chart: call `init()` once at startup (generated code runs `dispatch_int(&state::initial)` for the SCXML initial transition); for each later stimulus, call `dispatch_int` with the matching `&state::event_…` member pointer from your signal map. Internal events are not generated from SCXML `<raise>`; post them from your framework in C++ (`transition_actions` / `state_actions` specializations in the component `.cpp`, not inline `<script>` in SCXML).
+
+Not compatible with:
+
+- **SCXML `<raise>`** — ignored with a codegen warning; use framework calls in C++ template specializations instead.
+- **`--baremetal`** — flat state machines only; Gallium charts use hierarchical states.
+- **`--threadsafe`** — adds mutexes, condition variables, and `dispatch_loop()` around scxmlcc’s external event queue. `--gallium` omits those queues; you queue events and call `dispatch_int` from one task per chart (or apply your own locking).
+- **`--stringevents`** — string `event_map` and `dispatch(name)`; Gallium uses member-pointer events and your signal table.
+- **Final states** — not supported in this profile yet (`done.state.*` still uses the internal queue upstream).
+
 ### Using scxmlcc in other projects (e.g. STM32CubeIDE)
 
 - **Input:** `.scxml` (from scxmlgui or hand-edited), not UMLet `.uxf`.
-- **On change:** run `scxmlcc -o YourChart.h YourChart.scxml` on the PC, add the `.h` to the firmware project, build in the IDE.
+- **On change:** run `scxmlcc --gallium -o YourChart.h YourChart.scxml` on the PC, add the `.h` to the firmware project, build in the IDE.
 - **Optional:** STM32CubeIDE pre-build step calling `scxmlcc.exe` with full paths.
 
 The MCU never runs `scxmlcc`; only the generated C++ is compiled into firmware.

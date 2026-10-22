@@ -161,7 +161,7 @@ template<> bool sc::transition_actions<&sc::state::unconditional, sc::state_on, 
 	return m.user->timer >= 5;
 }
 
-template<> void sc::transition_actions<&sc::state::event_timer, sc::state_on>::enter(sc::data_model &m)
+template<> void sc::transition_actions<&sc::state::event_timer, sc::state_on>::run(sc::data_model &m)
 {
 	++m.user->timer;
 }

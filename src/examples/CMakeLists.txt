@@ -36,3 +36,5 @@ add_executable( vending_machine
     vending_machine/signal.h
     )
 scxmlcc_generator(INPUTS ${S}/vending_machine/vending_machine.scxml TARGETS vending_machine )
+
+add_subdirectory( gallium )

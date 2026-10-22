@@ -315,7 +315,7 @@ template<> bool sc_timer_switch::transition_actions<&sc_timer_switch::state::unc
 	return m.user->timer >= 5;
 }
 
-template<> void sc_timer_switch::transition_actions<&sc_timer_switch::state::event_timer, sc_timer_switch::state_on>::enter(sc_timer_switch::data_model &m)
+template<> void sc_timer_switch::transition_actions<&sc_timer_switch::state::event_timer, sc_timer_switch::state_on>::run(sc_timer_switch::data_model &m)
 {
 	++m.user->timer;
 }

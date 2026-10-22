@@ -27,6 +27,7 @@ struct options
 	std::string ignore_unknown;
 	std::string debug;
 	bool bare_metal = false;
+	bool gallium = false;
 	bool thread_safe = false;
 	bool string_events = false;
 	bool cpp14 = false;

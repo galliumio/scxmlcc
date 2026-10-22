@@ -41,13 +41,13 @@ const int price_coke = 15;
 const int price_zero = 15;
 const int price_diet = 15;
 
-template<> void sc::transition_actions<&sc::state::event_N, sc::state_collect_coins, sc::state_collect_coins>::enter(sc::data_model &m)	
+template<> void sc::transition_actions<&sc::state::event_N, sc::state_collect_coins, sc::state_collect_coins>::run(sc::data_model &m)	
 { 
 	// nickel inserted
 	m.user->credit += nickel; 
 }
 
-template<> void sc::transition_actions<&sc::state::event_D, sc::state_collect_coins, sc::state_collect_coins>::enter(sc::data_model &m)	
+template<> void sc::transition_actions<&sc::state::event_D, sc::state_collect_coins, sc::state_collect_coins>::run(sc::data_model &m)	
 { 
 	// dime inserted
 	m.user->credit += dime; 
@@ -71,7 +71,7 @@ template<> bool sc::transition_actions<&sc::state::unconditional, sc::state_retu
 	return m.user->credit >= dime;
 }
 
-template<> void sc::transition_actions<&sc::state::unconditional, sc::state_return_d>::enter(sc::data_model &m)
+template<> void sc::transition_actions<&sc::state::unconditional, sc::state_return_d>::run(sc::data_model &m)
 {
 	// refund dime
 	m.user->sig_refund_dime();
@@ -90,7 +90,7 @@ template<> bool sc::transition_actions<&sc::state::unconditional, sc::state_retu
 	return m.user->credit >= nickel;
 }
 
-template<> void sc::transition_actions<&sc::state::unconditional, sc::state_return_n>::enter(sc::data_model &m)
+template<> void sc::transition_actions<&sc::state::unconditional, sc::state_return_n>::run(sc::data_model &m)
 {
 	// refund nickel
 	m.user->sig_refund_nickel();

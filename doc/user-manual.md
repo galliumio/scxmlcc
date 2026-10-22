@@ -161,7 +161,7 @@ The transition's executable content can also be defined in C++ code instead of t
 Transition actions are implemented in a `transition_actions` template inside the state machine class. This template can be specialized for each transition to implement custom actions. If the state machine is called `sc`, a transition action can be specialized like this in the C++ file that includes the generated state machine:
 
 ```
-template<> void sc::transition_actions<E, S, D>::enter(sc::data_model &m)	{ ... }
+template<> void sc::transition_actions<E, S, D>::run(sc::data_model &m)	{ ... }
 ```
 Where `E` is the event, `S` is the source state, `D` is the destination state. `D` is omitted if the transition has no target.
 
@@ -169,7 +169,7 @@ The event is a member method in the sc::state struct, and the states are structs
 
 So, for example. This is for a transition without target:
 ```
-template<> void sc::transition_actions<&sc::state::event_timer, sc::state_on>::enter(sc::data_model &m)
+template<> void sc::transition_actions<&sc::state::event_timer, sc::state_on>::run(sc::data_model &m)
 {
         ++m.user->timer;
 }

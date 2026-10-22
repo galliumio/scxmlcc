@@ -2,7 +2,10 @@
 # Usage:
 #   INPUTS: Input file(s)
 #   TARGETS: Name of target(s), which depends on the statemachine
-#   CLIARGUMENTS: Optional scxmlcc cli argument(s) (e.g. --debug=clog and/or --cpp14)
+#   CLIARGUMENTS: Optional scxmlcc cli argument(s) (e.g. --debug=clog, --cpp14, --gallium)
+#                 When --gallium is present, --stringevents is not added automatically.
+#                 Combining --gallium with --baremetal, --threadsafe, or --stringevents
+#                 in CLIARGUMENTS is a configure error (same rules as scxmlcc).
 #
 # The generated file(s) are placed within current build folder. Every input
 # file will produce an output file. The output name depends on the input name,
@@ -42,6 +45,20 @@ function (scxmlcc_generator )
      message(FATAL_ERROR "Missing TARGETS parameter for scxmlcc_generator command")
    endif()
 
+   list(FIND PARSED_ARG_CLIARGUMENTS "--gallium" _gallium_idx)
+   list(FIND PARSED_ARG_CLIARGUMENTS "-g" _gallium_short_idx)
+   if(_gallium_idx EQUAL -1 AND _gallium_short_idx EQUAL -1)
+     set(_stringevents_cli --stringevents)
+   else()
+     set(_stringevents_cli "")
+     foreach(_incompat IN ITEMS --baremetal -b --threadsafe -t --stringevents -s)
+       list(FIND PARSED_ARG_CLIARGUMENTS "${_incompat}" _incompat_idx)
+       if(NOT _incompat_idx EQUAL -1)
+         message(FATAL_ERROR "scxmlcc_generator: --gallium is incompatible with ${_incompat}")
+       endif()
+     endforeach()
+   endif()
+
    foreach(input ${PARSED_ARG_INPUTS})
      get_filename_component(ext ${input} EXT)
      if(NOT ext STREQUAL ".scxml")
@@ -54,7 +71,7 @@ function (scxmlcc_generator )
 
      add_custom_command(
           OUTPUT ${output}
-          COMMAND ${SCC} ${PARSED_ARG_CLIARGUMENTS} --stringevents -i ${input}  -o ${output}
+          COMMAND ${SCC} ${PARSED_ARG_CLIARGUMENTS} ${_stringevents_cli} -i ${input}  -o ${output}
           DEPENDS ${input}
      )
      list(APPEND outputs ${output})
