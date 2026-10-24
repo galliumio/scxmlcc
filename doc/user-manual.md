@@ -139,7 +139,7 @@ An execute condition. The transition is only executed if the condition evaluates
 The id of the state to transition to.
 
 ##### `type`
-Can be `"internal"` or `"external"`. If omitted, the type is external. If the type is internal and the target state is a descendant of the transitions source state, the transition will not exit and re-enter its source state, while an external one will. Internal transitions are useful for initial transitions as a child of [`<initial>`](user-manual.md#initial-initial)
+Can be `"internal"` or `"external"`. If omitted, the type is external (internal when generating with `--gallium`, see [Gallium profile](building-windows.md#gallium-profile---gallium)). If the type is internal and the target state is a descendant of the transitions source state, the transition will not exit and re-enter its source state, while an external one will. Internal transitions are useful for initial transitions as a child of [`<initial>`](user-manual.md#initial-initial)
 
 #### Valid Children
 - [`<raise>`](user-manual.md#raise-raise)
