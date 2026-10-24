@@ -155,6 +155,8 @@ Keys: **s** start, **p** stop, **d** done, **f** failed, **q** quit. Each key ca
 
 Compared to the default profile, `--gallium` omits scxmlcc `deque` event queues and does not bootstrap through `dispatch_ext()`. Your framework drives the chart: call `init()` once at startup (generated code runs `dispatch_int(&state::initial)` for the SCXML initial transition); for each later stimulus, call `dispatch_int` with the matching `&state::event_…` member pointer from your signal map. Internal events are not generated from SCXML `<raise>`; post them from your framework in C++ (`transition_actions` / `state_actions` specializations in the component `.cpp`, not inline `<script>` in SCXML).
 
+**Default transition type:** with `--gallium`, a `<transition>` without a `type` attribute is generated as `internal` (other profiles keep the SCXML default, `external`). This is the same as writing `type="internal"` on every transition. It only changes transitions whose target is a descendant of the source state (for example a `root` → `stopping` transition on a compound `root`): the source state is not exited and re-entered. Transitions between siblings, targetless transitions and initial transitions are unaffected. Add `type="external"` to a single transition to get the standard external behavior.
+
 Not compatible with:
 
 - **SCXML `<raise>`** — ignored with a codegen warning; use framework calls in C++ template specializations instead.
