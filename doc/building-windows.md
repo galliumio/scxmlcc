@@ -140,6 +140,17 @@ cd path\to\scxmlcc\src\examples\gallium
 path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -o hello_world.h hello_world.scxml
 ```
 
+### Gallium four_states (keyboard host demo)
+
+**SimpleAct**-style chart under compound **`root`** (`stopped` → `starting` → `started` → `stopping` → `stopped`; **`fault`** on stop failure). Source of truth for codegen is `four_states.scxml`; `four_states.uxf` mirrors the chart for UMLet. The host demo prints each transition’s event, source, and target, plus diagram `/ action` text where present.
+
+```bat
+cmake --build . --config Release --target gallium_four_states
+src\examples\gallium\Release\gallium_four_states.exe
+```
+
+Keys: **s** start, **p** stop, **d** done, **f** failed, **q** quit. Each key calls `dispatch_int(&state::event_…)` (no scxmlcc queues).
+
 ### Gallium profile (`--gallium`)
 
 Compared to the default profile, `--gallium` omits scxmlcc `deque` event queues and does not bootstrap through `dispatch_ext()`. Your framework drives the chart: call `init()` once at startup (generated code runs `dispatch_int(&state::initial)` for the SCXML initial transition); for each later stimulus, call `dispatch_int` with the matching `&state::event_…` member pointer from your signal map. Internal events are not generated from SCXML `<raise>`; post them from your framework in C++ (`transition_actions` / `state_actions` specializations in the component `.cpp`, not inline `<script>` in SCXML).
