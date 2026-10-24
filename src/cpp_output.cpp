@@ -1057,7 +1057,12 @@ void cpp_output::gen_state(const scxml_parser::state &state)
 			const bool first = t == mi->second.begin();
 			const bool multiple = mi->second.size() > 1 || use_ancestor;
 			const bool last = t == mi->second.end() - 1;
-			const bool internal = !parallel_state && t->get()->type && *t->get()->type == "internal";
+			// --gallium: transitions are internal unless type="external" is given explicitly.
+			// (Only affects a transition whose target is a descendant of its source; all other
+			// transitions are generated identically for internal and external.)
+			const bool explicit_internal = t->get()->type && *t->get()->type == "internal";
+			const bool explicit_external = t->get()->type && *t->get()->type == "external";
+			const bool internal = !parallel_state && (explicit_internal || (opt.gallium && !explicit_external));
 			const bool has_target = !t->get()->target.empty();
 
 			if(has_target) {

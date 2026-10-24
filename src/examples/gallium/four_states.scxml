@@ -4,7 +4,7 @@
 -->
 <scxml initial="root" name="four_states" version="0.9" xmlns="http://www.w3.org/2005/07/scxml">
     <state id="root" initial="stopped">
-        <transition event="SimpleActStopReq" target="stopping" type="internal"/>
+        <transition event="SimpleActStopReq" target="stopping"/>
         <transition event="SimpleActStartReq"/>
         <state id="stopped">
             <transition event="SimpleActStartReq" target="starting"/>
