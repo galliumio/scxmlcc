@@ -3,3 +3,4 @@
  * [Getting Started](getting-started.md)
  * [Building on Windows](building-windows.md)
  * [Users Manual](user-manual.md)
+ * [scxmlcc design notes](scxmlcc%20design%20notes.pdf) — supplementary notes on scxmlcc C++ code generation (`composite`, `dispatch_int`, and related internals); not official jp-embedded documentation
