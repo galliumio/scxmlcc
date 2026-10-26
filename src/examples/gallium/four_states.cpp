@@ -30,7 +30,7 @@ static void log_action(const char *action)
 
 static void print_help()
 {
-	cout << "four_states (Gallium / dispatch_int)\n"
+	cout << "four_states (a simple active object demo)\n"
 	     << "  s  SimpleActStartReq\n"
 	     << "  p  SimpleActStopReq\n"
 	     << "  d  Done\n"
