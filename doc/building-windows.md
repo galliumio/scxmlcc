@@ -142,7 +142,7 @@ path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -o hello_world.h hello_w
 
 ### Gallium simple_act (keyboard host demo)
 
-**SimpleAct**-style chart under compound **`root`** (`stopped` → `starting` → `started` → `stopping` → `stopped`; **`fault`** on stop failure). Chart id **`simple_act`** → generated **`sc_simple_act`**. Sources: `src/examples/gallium/simple_act/simple_act.scxml` (and `simple_act.uxf` for UMLet). The host demo prints each transition’s event, source, and target, plus diagram `/ action` text where present.
+**SimpleAct**-style chart under compound **`root`** (`stopped` → `starting` → `started` → `stopping` → `stopped`; **`fault`** on stop failure). Chart id **`simple_act`** → generated **`sc_simple_act`**. Source of truth: `src/examples/gallium/simple_act/simple_act.scxml`; `simple_act.uxf` mirrors the chart for UMLet. The host demo prints each transition’s event, source, and target, plus diagram `/ action` text where present.
 
 ```bat
 cmake --build . --config Release --target gallium_simple_act
@@ -151,7 +151,16 @@ src\examples\gallium\simple_act\Release\gallium_simple_act.exe
 
 Keys: **s** start, **p** stop, **d** done, **f** failed, **q** quit. Each key calls `dispatch_int(&state::event_…)` (no scxmlcc queues).
 
-**Legacy `four_states`:** the same chart remains at `src/examples/gallium/four_states.*` (`name="four_states"` → `sc_four_states`) for older links; prefer **`simple_act/`** for new work.
+Codegen runs via `scxmlcc_generator` with `CLIARGUMENTS --gallium` (see `src/examples/gallium/simple_act/CMakeLists.txt`). The generated header is `build/src/examples/gallium/simple_act/simple_act.h` (not committed; see `src/examples/gallium/.gitignore`).
+
+Manual generate (e.g. for STM32CubeIDE):
+
+```bat
+cd path\to\scxmlcc\src\examples\gallium\simple_act
+path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -i simple_act.scxml -o simple_act.h
+```
+
+Do not check in `simple_act.h`; add the build output or a pre-build step that runs scxmlcc in your firmware project.
 
 ### Gallium profile (`--gallium`)
 

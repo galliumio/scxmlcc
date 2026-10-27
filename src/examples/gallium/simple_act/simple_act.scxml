@@ -1,7 +1,6 @@
 <!--
   simple_act — SimpleAct-style chart with compound root (simpleAct::root).
   lowerCamelCase state ids; PascalCase event names. Mirror: simple_act.uxf.
-  (Legacy copy with four_states name remains in ../four_states.* for published links.)
 -->
 <scxml initial="root" name="simple_act" version="0.9" xmlns="http://www.w3.org/2005/07/scxml">
     <state id="root" initial="stopped">
