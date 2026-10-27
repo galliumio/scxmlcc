@@ -4,3 +4,7 @@ four_states
 four_states.h
 gallium_four_states
 gallium_four_states.exe
+# Generated headers (scxmlcc_generator → build dir); do not ignore simple_act/ folder.
+simple_act.h
+gallium_simple_act
+gallium_simple_act.exe

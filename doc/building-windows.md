@@ -140,16 +140,18 @@ cd path\to\scxmlcc\src\examples\gallium
 path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -o hello_world.h hello_world.scxml
 ```
 
-### Gallium four_states (keyboard host demo)
+### Gallium simple_act (keyboard host demo)
 
-**SimpleAct**-style chart under compound **`root`** (`stopped` → `starting` → `started` → `stopping` → `stopped`; **`fault`** on stop failure). Source of truth for codegen is `four_states.scxml`; `four_states.uxf` mirrors the chart for UMLet. The host demo prints each transition’s event, source, and target, plus diagram `/ action` text where present.
+**SimpleAct**-style chart under compound **`root`** (`stopped` → `starting` → `started` → `stopping` → `stopped`; **`fault`** on stop failure). Chart id **`simple_act`** → generated **`sc_simple_act`**. Sources: `src/examples/gallium/simple_act/simple_act.scxml` (and `simple_act.uxf` for UMLet). The host demo prints each transition’s event, source, and target, plus diagram `/ action` text where present.
 
 ```bat
-cmake --build . --config Release --target gallium_four_states
-src\examples\gallium\Release\gallium_four_states.exe
+cmake --build . --config Release --target gallium_simple_act
+src\examples\gallium\simple_act\Release\gallium_simple_act.exe
 ```
 
 Keys: **s** start, **p** stop, **d** done, **f** failed, **q** quit. Each key calls `dispatch_int(&state::event_…)` (no scxmlcc queues).
+
+**Legacy `four_states`:** the same chart remains at `src/examples/gallium/four_states.*` (`name="four_states"` → `sc_four_states`) for older links; prefer **`simple_act/`** for new work.
 
 ### Gallium profile (`--gallium`)
 

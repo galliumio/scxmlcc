@@ -13,3 +13,5 @@ scxmlcc_generator(
 	CLIARGUMENTS --gallium
 	TARGETS gallium_four_states
 )
+
+add_subdirectory( simple_act )
