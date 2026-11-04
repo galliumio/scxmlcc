@@ -131,13 +131,13 @@ hello
 world
 ```
 
-Codegen runs via `scxmlcc_generator` with `CLIARGUMENTS --gallium` (see `src/examples/gallium/CMakeLists.txt`). The generated header is `build/src/examples/gallium/hello_world.h`.
+Codegen runs via `scxmlcc_generator` with `CLIARGUMENTS --gallium` (see `src/examples/gallium/CMakeLists.txt`). Generated in the build dir: `hello_world.h` and `hello_world_event_map.h` (host demo uses only the machine header).
 
 Manual generate (e.g. for STM32CubeIDE):
 
 ```bat
 cd path\to\scxmlcc\src\examples\gallium
-path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -o hello_world.h hello_world.scxml
+path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -i hello_world.scxml -o hello_world.h
 ```
 
 ### Gallium simple_act (keyboard host demo)
@@ -151,7 +151,7 @@ src\examples\gallium\simple_act\Release\gallium_simple_act.exe
 
 Keys: **s** start, **p** stop, **d** done, **f** failed, **q** quit. Each key calls `dispatch_int(&state::event_…)` (no scxmlcc queues).
 
-Codegen runs via `scxmlcc_generator` with `CLIARGUMENTS --gallium` (see `src/examples/gallium/simple_act/CMakeLists.txt`). The generated header is `build/src/examples/gallium/simple_act/simple_act.h` (not committed; see `src/examples/gallium/.gitignore`).
+Codegen runs via `scxmlcc_generator` with `CLIARGUMENTS --gallium` (see `src/examples/gallium/simple_act/CMakeLists.txt`). Generated in the build dir: `simple_act.h` and `simple_act_event_map.h` (host demo uses only the machine header; firmware uses both — see event map section below). Not committed; see `src/examples/gallium/.gitignore`.
 
 Manual generate (e.g. for STM32CubeIDE):
 
@@ -160,9 +160,13 @@ cd path\to\scxmlcc\src\examples\gallium\simple_act
 path\to\scxmlcc\build\src\Release\scxmlcc.exe --gallium -i simple_act.scxml -o simple_act.h
 ```
 
-Do not check in `simple_act.h`; add the build output or a pre-build step that runs scxmlcc in your firmware project.
+If `-o` is omitted, the machine header defaults to **`{input-stem}.h`** (same as non-Gallium). With `--gallium`, a second file **`{output-stem}_event_map.h`** is written next to the machine header (e.g. `simple_act_event_map.h` beside `simple_act.h`).
+
+Do not check in generated `{stem}.h` / `{stem}_event_map.h`; add a pre-build step that runs scxmlcc in your firmware project.
 
 ### Gallium profile (`--gallium`)
+
+On this fork, generated code always calls **`transition_actions<…>::run`** (upstream uses **`enter`**). Hand-written specializations in examples and firmware must use **`::run`** to match. Fork-specific codegen is marked in **`src/cpp_output.cpp`** with comments prefixed **`// gallium -`** (event map, `dispatch_int`, default internal transitions, and related helpers).
 
 Compared to the default profile, `--gallium` omits scxmlcc `deque` event queues and does not bootstrap through `dispatch_ext()`. Your framework drives the chart: call `init()` once at startup (generated code runs `dispatch_int(&state::initial)` for the SCXML initial transition); for each later stimulus, call `dispatch_int` with the matching `&state::event_…` member pointer from your signal map. Internal events are not generated from SCXML `<raise>`; post them from your framework in C++ (`transition_actions` / `state_actions` specializations in the component `.cpp`, not inline `<script>` in SCXML).
 
@@ -174,12 +178,33 @@ Not compatible with:
 - **`--baremetal`** — flat state machines only; Gallium charts use hierarchical states.
 - **`--threadsafe`** — adds mutexes, condition variables, and `dispatch_loop()` around scxmlcc’s external event queue. `--gallium` omits those queues; you queue events and call `dispatch_int` from one task per chart (or apply your own locking).
 - **`--stringevents`** — string `event_map` and `dispatch(name)`; Gallium uses member-pointer events and your signal table.
+- **`--namespace` (`-n`)** — not supported with `--gallium`; event map API is `@name::type_to_handler` and the generated machine stays global `sc_<name>`.
 - **Final states** — not supported in this profile yet (`done.state.*` still uses the internal queue upstream).
+
+#### Event map (`{output-stem}_event_map.h`)
+
+With `--gallium`, each run writes the machine header from **`-o`** (or `{input-stem}.h` by default) and **`{output-stem}_event_map.h`** in the same directory:
+
+```text
+scxmlcc --gallium -i simple_act.scxml -o simple_act.h
+```
+
+| Item | Example |
+|------|---------|
+| Machine header (`-o`) | `simple_act.h` |
+| Event map (derived from `-o` stem) | `simple_act_event_map.h` |
+| Model forward decl + `user_model` | `SimpleActModel` |
+| Event-map namespace (from SCXML `@name`) | `simple_act::type_to_handler` |
+| Includes in event map | `{output-basename}.h`, `{Pascal}Interface.h`, `{Pascal}Model.h`, `{Pascal}.h` |
+
+SCXML transition events use **PascalCase** names copied into the map. **Interface** events must be prefixed with **PascalCase(`@name`)** (e.g. chart `simple_act` → prefix **`SimpleAct`**, events **`SimpleActStartReq`**, … → **`app::evt::`**). **Private** events (no prefix, e.g. **`Done`**, **`Failed`**) map to **`SimpleAct::`**. **`constexpr kEventMap[]`** of **`EventHandler`** `{ type, handler }` + linear lookup. Bind **`type_to_handler`** in **`ScxmlAdapter`**. **`fw::Evt::type`** holds the id (webserver uses string **`type`**).
+
+Stem of `-i` should match `@name` (warning if not).
 
 ### Using scxmlcc in other projects (e.g. STM32CubeIDE)
 
 - **Input:** `.scxml` (from scxmlgui or hand-edited), not UMLet `.uxf`.
-- **On change:** run `scxmlcc --gallium -o YourChart.h YourChart.scxml` on the PC, add the `.h` to the firmware project, build in the IDE.
+- **On change:** run `scxmlcc --gallium -i YourChart.scxml -o your_chart.h` on the PC (also writes `your_chart_event_map.h`), add both generated headers to the firmware project, build in the IDE.
 - **Optional:** STM32CubeIDE pre-build step calling `scxmlcc.exe` with full paths.
 
 The MCU never runs `scxmlcc`; only the generated C++ is compiled into firmware.

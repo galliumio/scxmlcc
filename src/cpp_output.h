@@ -44,6 +44,8 @@ class cpp_output {
 	{};
 
 	void gen();
+	// gallium - FW event map ({output-stem}_event_map.h).
+	void gen_sig_map(std::ostream &sig_map_out);
 
 	protected:
 	std::string classname();

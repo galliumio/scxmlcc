@@ -18,9 +18,14 @@
 #include "cpp_output.h"
 #include "version.h"
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/smart_ptr/make_shared.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/regex.hpp>
+#include <algorithm>
+#include <cctype>
+#include <fstream>
 #include <set>
 #include <iostream>
 
@@ -36,6 +41,97 @@ bool runtime_queues(const options &opt)
 bool simple_model_ctor(const options &opt)
 {
 	return opt.cpp14 || opt.bare_metal || opt.gallium;
+}
+
+// gallium - snake_case @name → PascalCase type names (SimpleAct, SimpleActModel).
+std::string snake_to_pascal(const std::string &snake)
+{
+	std::string result;
+	std::string part;
+	auto flush = [&]() {
+		if (part.empty()) {
+			return;
+		}
+		part[0] = static_cast<char>(toupper(static_cast<unsigned char>(part[0])));
+		for (size_t i = 1; i < part.size(); ++i) {
+			part[i] = static_cast<char>(tolower(static_cast<unsigned char>(part[i])));
+		}
+		result += part;
+		part.clear();
+	};
+	for (char c : snake) {
+		if (c == '_' || c == '-') {
+			flush();
+		} else {
+			part += c;
+		}
+	}
+	flush();
+	return result;
+}
+
+std::string gallium_model_class(const scxml_parser &sc)
+{
+	return snake_to_pascal(sc.sc().name) + "Model";
+}
+
+std::string gallium_active_class(const scxml_parser &sc)
+{
+	return snake_to_pascal(sc.sc().name);
+}
+
+// gallium - interface events are PascalCase(@name) + suffix, e.g. SimpleActStartReq.
+bool gallium_event_on_interface(const std::string &active_class, const std::string &ev)
+{
+	if (ev.size() <= active_class.size()) {
+		return false;
+	}
+	if (ev.compare(0, active_class.size(), active_class) != 0) {
+		return false;
+	}
+	return isupper(static_cast<unsigned char>(ev[active_class.size()])) != 0;
+}
+
+// gallium - skip wildcards and done.state.* when building kEventMap[].
+bool sig_map_include_event(const std::string &ev)
+{
+	if (ev.empty() || ev == "*") {
+		return false;
+	}
+	if (ev.find("done.state") != std::string::npos) {
+		return false;
+	}
+	return true;
+}
+
+// gallium - SCXML names used as C++ identifiers in the event map must be valid labels.
+bool gallium_valid_cpp_label(const std::string &name)
+{
+	if (name.empty()) {
+		return false;
+	}
+	const unsigned char first = static_cast<unsigned char>(name[0]);
+	if (!isalpha(first) && first != '_') {
+		return false;
+	}
+	for (size_t i = 1; i < name.size(); ++i) {
+		const unsigned char c = static_cast<unsigned char>(name[i]);
+		if (!isalnum(c) && c != '_') {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool scxmlcc_c_pred(char c)
+{
+	return !isalnum(static_cast<unsigned char>(c));
+}
+
+std::string include_basename(const std::string &path)
+{
+	const auto pos = path.find_last_of("/\\");
+	return pos == std::string::npos ? path : path.substr(pos + 1);
 }
 
 } // namespace
@@ -59,6 +155,7 @@ string cpp_output::state_actions_t()	{ return "state_actions"; }
 	
 void cpp_output::gen_transition_base()
 {
+	// gallium - transition_actions use run(), not upstream enter(); match in hand-written specializations.
 	string ret = state_t() + "*";
 	if (sc.using_parallel) ret = state_t() + "::state_list";
 	string empty = "0";
@@ -480,7 +577,7 @@ void cpp_output::gen_state_parallel_base()
 	std::set<int> parallel_sizes;
 	for (scxml_parser::state_list::const_iterator istate = states.begin(); istate != states.end(); ++istate) {
 		if (istate->get()->type && *istate->get()->type == "parallel") {
-			parallel_sizes.insert(children(*istate->get()).size());
+			parallel_sizes.insert(static_cast<int>(children(*istate->get()).size()));
 		}
 	}
 
@@ -603,7 +700,11 @@ void cpp_output::gen_state_parallel_base()
 void cpp_output::gen_model_decl()
 {
 	out << tab << "struct data_model;" << endl;
-	out << tab << "struct user_model;" << endl;
+	if (opt.gallium) {
+		out << tab << "using user_model = " << gallium_model_class(sc) << ";" << endl;
+	} else {
+		out << tab << "struct user_model;" << endl;
+	}
 	out << endl;
 }
 
@@ -1008,7 +1109,7 @@ void cpp_output::gen_state(const scxml_parser::state &state)
 	}
 
 	if(state.initial.target.size()) {
-		const int sz = state.initial.target.size();
+		const int sz = static_cast<int>(state.initial.target.size());
 		if (sc.using_parallel) out << tab << tab << ret << " initial" << "(" << classname() << " &sc, eval_data &eval) { return transition";
 		else out << tab << tab << ret << " initial" << "(" << classname() << " &sc) { return transition";
 		if (sz > 1) out << sz;
@@ -1057,7 +1158,7 @@ void cpp_output::gen_state(const scxml_parser::state &state)
 			const bool first = t == mi->second.begin();
 			const bool multiple = mi->second.size() > 1 || use_ancestor;
 			const bool last = t == mi->second.end() - 1;
-			// --gallium: transitions are internal unless type="external" is given explicitly.
+			// gallium - default transition type is internal unless type="external".
 			// (Only affects a transition whose target is a descendant of its source; all other
 			// transitions are generated identically for internal and external.)
 			const bool explicit_internal = t->get()->type && *t->get()->type == "internal";
@@ -1125,6 +1226,11 @@ void cpp_output::gen_sc()
 	const scxml_parser::state_list &states = sc.sc().states;
 	string ret = state_t() + "*";
 	if (sc.using_parallel) ret = "state_list";
+
+	if (opt.gallium) {
+		out << "class " << gallium_model_class(sc) << ";" << endl;
+		out << endl;
+	}
 
 	out << "class " << classname() << endl;
 	out << "{" << endl;
@@ -1339,7 +1445,7 @@ void cpp_output::gen_sc()
 		out << tab << tab << "static std::string debug_name() { return \"scxml\"; }" << endl;
 	}
 
-	const int sz = sc.sc().initial.target.size();
+	const int sz = static_cast<int>(sc.sc().initial.target.size());
 	if (sc.using_parallel) out << tab << tab << ret << " initial(" << classname() << "&sc, eval_data &eval) { return transition";
 	else out << tab << tab << ret << " initial(" << classname() << "&sc) { return transition";
 	if(sz > 1) out << sz;
@@ -1460,6 +1566,7 @@ void cpp_output::gen_with_end(bool cond)
 	
 void cpp_output::gen_actions()
 {
+	// gallium - emitted transition action specializations use ::run (see gen_transition_base).
 	const scxml_parser::state_list &states = sc.sc().states;
 	for (scxml_parser::state_list::const_iterator s = states.begin(); s != states.end(); ++s) {
 
@@ -1644,6 +1751,19 @@ void cpp_output::gen()
 		cerr << "error: final states are not supported with --gallium" << endl;
 		exit(1);
 	}
+	if (opt.gallium && !opt.ns.empty()) {
+		cerr << "error: --namespace (-n) is not supported with --gallium; bind @name::type_to_handler (machine stays global sc_<name>)" << endl;
+		exit(1);
+	}
+	if (opt.gallium && opt.input.stem().string() != sc.sc().name) {
+		cerr << "warning: input stem \"" << opt.input.stem().string()
+		     << "\" differs from SCXML @name=\"" << sc.sc().name << "\"" << endl;
+	}
+	if (opt.gallium && !gallium_valid_cpp_label(sc.sc().name)) {
+		cerr << "warning: SCXML @name \"" << sc.sc().name
+		     << "\" is not a valid C++ identifier; Gallium event map namespace may not compile until renamed"
+		     << endl;
+	}
 
 	// include guard
 	out << "// This file is automatically generated by scxmlcc (version " << version() << ")" << endl;
@@ -1720,5 +1840,83 @@ void cpp_output::gen()
 	// end of include guard
 	out << "#endif" << endl;
 
+}
+
+void cpp_output::gen_sig_map(std::ostream &sig_map_out)
+{
+	// gallium - FW event map ({output-stem}_event_map.h); called from main when --gallium.
+	const std::string component = sc.sc().name;
+	std::string guard = component;
+	std::replace_if(guard.begin(), guard.end(), scxmlcc_c_pred, '_');
+	boost::to_upper(guard);
+
+	const std::string active_class = gallium_active_class(sc);
+	const std::string chart = classname();
+	const std::string machine_header = include_basename(opt.output.string());
+	const std::string interface_header = active_class + "Interface.h";
+	const std::string model_header = gallium_model_class(sc) + ".h";
+	const std::string active_header = active_class + ".h";
+
+	sig_map_out << "// Generated by scxmlcc --gallium (event map)" << endl;
+	sig_map_out << "// SCXML @name: " << component << endl;
+	sig_map_out << "// Types: app::evt:: if event is " << active_class
+	            << "+Uppercase*; else " << active_class << ":: (private AO)." << endl;
+	sig_map_out << endl;
+	sig_map_out << "#ifndef " << guard << "_EVENT_MAP_H" << endl;
+	sig_map_out << "#define " << guard << "_EVENT_MAP_H" << endl;
+	sig_map_out << endl;
+	sig_map_out << "#include <cstdint>" << endl;
+	sig_map_out << "#include \"" << machine_header << "\"" << endl;
+	sig_map_out << "#include \"" << interface_header << "\"" << endl;
+	sig_map_out << "#include \"" << model_header << "\"" << endl;
+	sig_map_out << "#include \"" << active_header << "\"" << endl;
+	sig_map_out << endl;
+	sig_map_out << "namespace " << component << " {" << endl;
+	sig_map_out << endl;
+	sig_map_out << "struct EventHandler {" << endl;
+	sig_map_out << tab << "uint16_t type;" << endl;
+	sig_map_out << tab << chart << "::event handler;" << endl;
+	sig_map_out << "};" << endl;
+	sig_map_out << endl;
+	sig_map_out << "static constexpr EventHandler kEventMap[] = {" << endl;
+
+	const std::set<std::string> events = get_event_names();
+	bool first_row = true;
+	for (std::set<std::string>::const_iterator i = events.begin(); i != events.end(); ++i) {
+		if (!sig_map_include_event(*i)) {
+			continue;
+		}
+		if (!gallium_valid_cpp_label(*i)) {
+			cerr << "warning: SCXML event \"" << *i
+			     << "\" is not a valid C++ identifier; Gallium event map will not compile until renamed"
+			     << endl;
+		}
+		const bool on_interface = gallium_event_on_interface(active_class, *i);
+		const std::string qual = on_interface ? ("app::evt::" + *i) : (active_class + "::" + *i);
+		if (!first_row) {
+			sig_map_out << "," << endl;
+		}
+		first_row = false;
+		sig_map_out << tab << "{ static_cast<uint16_t>(" << qual << "), &" << chart << "::state::"
+		            << event_name(*i) << " }";
+	}
+	if (first_row) {
+		sig_map_out << tab << "{ 0, nullptr }  // no chart transition events" << endl;
+	}
+	sig_map_out << endl;
+	sig_map_out << "};" << endl;
+	sig_map_out << endl;
+	sig_map_out << "inline " << chart << "::event type_to_handler(uint16_t type) {" << endl;
+	sig_map_out << tab << "for (const EventHandler& e : kEventMap) {" << endl;
+	sig_map_out << tab << tab << "if (e.type == type) {" << endl;
+	sig_map_out << tab << tab << tab << "return e.handler;" << endl;
+	sig_map_out << tab << tab << "}" << endl;
+	sig_map_out << tab << "}" << endl;
+	sig_map_out << tab << "return nullptr;" << endl;
+	sig_map_out << "}" << endl;
+	sig_map_out << endl;
+	sig_map_out << "}  // namespace " << component << endl;
+	sig_map_out << endl;
+	sig_map_out << "#endif  // " << guard << "_EVENT_MAP_H" << endl;
 }
 

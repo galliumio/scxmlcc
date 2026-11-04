@@ -9,6 +9,8 @@
 
 **Upstream baseline:** [jp-embedded/scxmlcc](https://github.com/jp-embedded/scxmlcc) at commit [`2dbbcec`](https://github.com/jp-embedded/scxmlcc/commit/2dbbcec) (near release `0.11`). To pull upstream changes: `git fetch upstream` and merge `upstream/master` into `main`.
 
+**Gallium fork delta:** generated `transition_actions` call **`run()`** (upstream uses **`enter()`**). Hand-written specializations in examples and firmware must use **`::run`** to match generated headers. In the generator sources, fork-specific behavior is marked with **`// gallium -`** comments (see `src/cpp_output.cpp`).
+
 **Windows:** [Building scxmlcc and Hello World](doc/building-windows.md).
 
 # Welcome to scxmlcc.

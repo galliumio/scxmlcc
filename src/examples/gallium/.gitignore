@@ -2,5 +2,6 @@ hello_world
 hello_world.h
 # Generated headers (scxmlcc_generator → build dir); do not ignore simple_act/ folder.
 simple_act.h
+simple_act_event_map.h
 gallium_simple_act
 gallium_simple_act.exe

@@ -43,9 +43,33 @@ void scxmlcc(const options &opt)
 	std::string sc_name = opt.input.stem().string();
 	replace_if(sc_name.begin(), sc_name.end(), c_pred, '_');
 	scxml_parser sc(sc_name.c_str(), opt.ignore_unknown, pt);
-	ofstream ofs(opt.output.string().c_str());
+
+	fs::path output = opt.output;
+	if (output.empty()) {
+		output = opt.input;
+		output.replace_extension(".h");
+	}
+
+	ofstream ofs(output.string().c_str());
+	if (!ofs) {
+		cerr << "Error: cannot write " << output << endl;
+		exit(1);
+	}
 	cpp_output out(ofs, sc, opt);
 	out.gen();
+	cout << "Wrote " << output.string() << endl;
+
+	if (opt.gallium) {
+		const fs::path map_path =
+		    output.parent_path() / (output.stem().string() + "_event_map.h");
+		ofstream map_ofs(map_path.string().c_str());
+		if (!map_ofs) {
+			cerr << "Error: cannot write event map " << map_path << endl;
+			exit(1);
+		}
+		out.gen_sig_map(map_ofs);
+		cout << "Wrote " << map_path.string() << endl;
+	}
 }
 
 int main(int argc, char *argv[])

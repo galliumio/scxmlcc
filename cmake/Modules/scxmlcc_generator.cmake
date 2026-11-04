@@ -4,12 +4,11 @@
 #   TARGETS: Name of target(s), which depends on the statemachine
 #   CLIARGUMENTS: Optional scxmlcc cli argument(s) (e.g. --debug=clog, --cpp14, --gallium)
 #                 When --gallium is present, --stringevents is not added automatically.
-#                 Combining --gallium with --baremetal, --threadsafe, or --stringevents
+#                 Combining --gallium with --baremetal, --threadsafe, --stringevents, or --namespace
 #                 in CLIARGUMENTS is a configure error (same rules as scxmlcc).
 #
 # The generated file(s) are placed within current build folder. Every input
-# file will produce an output file. The output name depends on the input name,
-# eg. microwave-01-cplusplus.xml --> microwave-01-cplusplus.h
+# file produces ${base}.h; with --gallium also ${base}_event_map.h (see main.cpp).
 #
 # Be aware: You can't use the scxmlcc_generator command with the same INPUTS arguments twice, e.g.:
 # scxmlcc_generator(INPUT ${CMAKE_CURRENT_SOURCE_DIR}/microwave-02-cplusplus.scxml TARGETS testlib)
@@ -31,11 +30,16 @@ function (scxmlcc_generator )
     ${ARGN}
   )
 
-   # if we didn't compile the scxmlcc, then go find it in the system
+   # Resolve scxmlcc for add_custom_command COMMAND (target or find_program).
+   # When building in-tree, DEPENDS includes $<TARGET_FILE:scxmlcc> so rebuilding the
+   # generator reruns codegen without touching .scxml (file dep works on CMake 3.10+).
+   # Installed scxmlcc via find_program: no binary path to depend on at configure time.
    if ( TARGET scxmlcc )
       set(SCC scxmlcc )
+      set(_scc_dep scxmlcc)
    else()
       find_program( SCC scxmlcc )
+      set(_scc_dep "")
    endif()
 
    if(NOT PARSED_ARG_INPUTS)
@@ -51,13 +55,15 @@ function (scxmlcc_generator )
      set(_stringevents_cli --stringevents)
    else()
      set(_stringevents_cli "")
-     foreach(_incompat IN ITEMS --baremetal -b --threadsafe -t --stringevents -s)
+     foreach(_incompat IN ITEMS --baremetal -b --threadsafe -t --stringevents -s --namespace -n)
        list(FIND PARSED_ARG_CLIARGUMENTS "${_incompat}" _incompat_idx)
        if(NOT _incompat_idx EQUAL -1)
          message(FATAL_ERROR "scxmlcc_generator: --gallium is incompatible with ${_incompat}")
        endif()
      endforeach()
    endif()
+
+   set(outputs "")
 
    foreach(input ${PARSED_ARG_INPUTS})
      get_filename_component(ext ${input} EXT)
@@ -69,12 +75,29 @@ function (scxmlcc_generator )
      get_filename_component(base ${input} NAME_WE)
      set(output ${CMAKE_CURRENT_BINARY_DIR}/${base}.h)
 
+     set(_map_output "")
+     if(NOT _gallium_idx EQUAL -1 OR NOT _gallium_short_idx EQUAL -1)
+       set(_map_output ${CMAKE_CURRENT_BINARY_DIR}/${base}_event_map.h)
+     endif()
+
+     # DEPENDS: chart source; when building in-tree, the scxmlcc binary (file path, not
+     # target name — cmake_minimum_required is 3.10; target DEPENDS need 3.16+).
+     set(_cmd_deps ${input})
+     if(_scc_dep)
+       list(APPEND _cmd_deps "$<TARGET_FILE:${_scc_dep}>")
+     endif()
+
+     set(_outputs ${output})
+     if(NOT _map_output STREQUAL "")
+       list(APPEND _outputs ${_map_output})
+     endif()
+
      add_custom_command(
-          OUTPUT ${output}
+          OUTPUT ${_outputs}
           COMMAND ${SCC} ${PARSED_ARG_CLIARGUMENTS} ${_stringevents_cli} -i ${input}  -o ${output}
-          DEPENDS ${input}
+          DEPENDS ${_cmd_deps}
      )
-     list(APPEND outputs ${output})
+     list(APPEND outputs ${_outputs})
    endforeach()
 
    # Append hash to avoid problems with same named input files
