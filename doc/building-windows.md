@@ -178,7 +178,7 @@ Not compatible with:
 - **`--baremetal`** — flat state machines only; Gallium charts use hierarchical states.
 - **`--threadsafe`** — adds mutexes, condition variables, and `dispatch_loop()` around scxmlcc’s external event queue. `--gallium` omits those queues; you queue events and call `dispatch_int` from one task per chart (or apply your own locking).
 - **`--stringevents`** — string `event_map` and `dispatch(name)`; Gallium uses member-pointer events and your signal table.
-- **`--namespace` (`-n`)** — not supported with `--gallium`; event map API is `@name::type_to_handler` and the generated machine stays global `sc_<name>`.
+- **`--namespace` (`-n`)** — not supported with `--gallium`; event map API is `<@name>_evt::type_to_handler` and the generated machine stays global `sc_<name>`.
 - **Final states** — not supported in this profile yet (`done.state.*` still uses the internal queue upstream).
 
 #### Event map (`{output-stem}_event_map.h`)
@@ -194,7 +194,7 @@ scxmlcc --gallium -i simple_act.scxml -o simple_act.h
 | Machine header (`-o`) | `simple_act.h` |
 | Event map (derived from `-o` stem) | `simple_act_event_map.h` |
 | Model forward decl + `user_model` | `SimpleActModel` |
-| Event-map namespace (from SCXML `@name`) | `simple_act::type_to_handler` |
+| Event-map namespace (`<@name>_evt`) | `simple_act_evt::type_to_handler` |
 | Includes in event map | `{output-basename}.h`, `{Pascal}Interface.h`, `{Pascal}Model.h`, `{Pascal}.h` |
 
 SCXML transition events use **PascalCase** names copied into the map. **Interface** events must be prefixed with **PascalCase(`@name`)** (e.g. chart `simple_act` → prefix **`SimpleAct`**, events **`SimpleActStartReq`**, … → **`app::evt::`**). **Private** events (no prefix, e.g. **`Done`**, **`Failed`**) map to **`SimpleAct::`**. **`constexpr kEventMap[]`** of **`EventHandler`** `{ type, handler }` + linear lookup. Bind **`type_to_handler`** in **`ScxmlAdapter`**. **`fw::Evt::type`** holds the id (webserver uses string **`type`**).
